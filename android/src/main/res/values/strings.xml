@@ -1,0 +1,5 @@
+<resources>
+    <string name="coach_widget_nome">PersonalCoach</string>
+    <string name="coach_widget_descrizione">Avanzamento del piano e prossima seduta</string>
+    <string name="coach_canale">Coach</string>
+</resources>

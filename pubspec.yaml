@@ -1,0 +1,19 @@
+name: personal_coach_widget
+description: Widget per la schermata home Android e notifiche locali per l'app PersonalCoach.
+version: 1.0.0
+publish_to: none
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+  flutter: ">=3.10.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: it.personalcoach.widget
+        pluginClass: PersonalCoachWidgetPlugin
