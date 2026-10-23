@@ -6,10 +6,15 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
+import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -20,6 +25,7 @@ import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.PluginRegistry
+import java.util.UUID
 
 class PersonalCoachWidgetPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware,
     PluginRegistry.RequestPermissionsResultListener {
@@ -29,6 +35,10 @@ class PersonalCoachWidgetPlugin : FlutterPlugin, MethodChannel.MethodCallHandler
     private var activity: Activity? = null
     private var binding: ActivityPluginBinding? = null
     private var permessoPendente: MethodChannel.Result? = null
+    // Pebble (PebbleKit Android "classic", supportato dall'app Pebble di Core)
+    private var pebbleUuid: UUID? = null
+    private var pebbleRicevitore: BroadcastReceiver? = null
+    private var pebbleTransazione = 0
 
     override fun onAttachedToEngine(b: FlutterPlugin.FlutterPluginBinding) {
         context = b.applicationContext
@@ -38,6 +48,38 @@ class PersonalCoachWidgetPlugin : FlutterPlugin, MethodChannel.MethodCallHandler
 
     override fun onDetachedFromEngine(b: FlutterPlugin.FlutterPluginBinding) {
         channel.setMethodCallHandler(null)
+        pebbleRicevitore?.let { try { context.unregisterReceiver(it) } catch (_: Exception) {} }
+        pebbleRicevitore = null
+    }
+
+    // Messaggi dalla watchapp: ACK subito all'app Pebble, poi a Dart.
+    private fun pebbleAscolta(uuid: UUID) {
+        pebbleUuid = uuid
+        if (pebbleRicevitore != null) return
+        val r = object : BroadcastReceiver() {
+            override fun onReceive(c: Context, i: Intent) {
+                @Suppress("DEPRECATION")
+                val u = (i.getSerializableExtra(PEBBLE_UUID) as? UUID)
+                    ?: i.getStringExtra(PEBBLE_UUID)?.let { runCatching { UUID.fromString(it) }.getOrNull() }
+                if (u == null || u != pebbleUuid) return
+                val tid = i.getIntExtra(PEBBLE_TRANSAZIONE, -1)
+                c.sendBroadcast(Intent(PEBBLE_ACK).putExtra(PEBBLE_TRANSAZIONE, tid))
+                val json = i.getStringExtra(PEBBLE_DATI) ?: return
+                Handler(Looper.getMainLooper()).post { channel.invokeMethod("pebbleMessaggio", json) }
+            }
+        }
+        ContextCompat.registerReceiver(context, r, IntentFilter(PEBBLE_RICEVI), ContextCompat.RECEIVER_EXPORTED)
+        pebbleRicevitore = r
+    }
+
+    private fun pebbleInvia(uuid: UUID, json: String) {
+        pebbleTransazione = (pebbleTransazione + 1) % 256
+        context.sendBroadcast(
+            Intent(PEBBLE_INVIA)
+                .putExtra(PEBBLE_UUID, uuid)
+                .putExtra(PEBBLE_TRANSAZIONE, pebbleTransazione)
+                .putExtra(PEBBLE_DATI, json)
+        )
     }
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
@@ -66,6 +108,14 @@ class PersonalCoachWidgetPlugin : FlutterPlugin, MethodChannel.MethodCallHandler
                 } else {
                     result.success(false)
                 }
+            }
+            "pebbleAscolta" -> {
+                pebbleAscolta(UUID.fromString(call.argument<String>("uuid")))
+                result.success(true)
+            }
+            "pebbleInvia" -> {
+                pebbleInvia(UUID.fromString(call.argument<String>("uuid")), call.argument<String>("json") ?: "[]")
+                result.success(true)
             }
             else -> result.notImplemented()
         }
@@ -131,5 +181,11 @@ class PersonalCoachWidgetPlugin : FlutterPlugin, MethodChannel.MethodCallHandler
     companion object {
         private const val CANALE = "coach"
         private const val CODICE_PERMESSO = 4711
+        private const val PEBBLE_RICEVI = "com.getpebble.action.app.RECEIVE"
+        private const val PEBBLE_INVIA = "com.getpebble.action.app.SEND"
+        private const val PEBBLE_ACK = "com.getpebble.action.app.ACK"
+        private const val PEBBLE_UUID = "uuid"
+        private const val PEBBLE_TRANSAZIONE = "transaction_id"
+        private const val PEBBLE_DATI = "msg_data"
     }
 }

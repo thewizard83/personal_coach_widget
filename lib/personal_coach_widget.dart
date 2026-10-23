@@ -56,4 +56,28 @@ class PersonalCoachWidget {
       return false;
     }
   }
+
+  /// Ascolta i messaggi della watchapp Pebble [uuid] (PebbleKit Android).
+  /// [suMessaggio] riceve le tuple: [{key, type, length, value}, ...].
+  static Future<void> pebbleAscolta(String uuid, Future<void> Function(List<dynamic> tuple) suMessaggio) async {
+    if (!_android) return;
+    _ch.setMethodCallHandler((call) async {
+      if (call.method == 'pebbleMessaggio') {
+        try {
+          await suMessaggio(jsonDecode(call.arguments as String) as List<dynamic>);
+        } catch (_) {}
+      }
+    });
+    try {
+      await _ch.invokeMethod('pebbleAscolta', {'uuid': uuid});
+    } catch (_) {}
+  }
+
+  /// Invia tuple alla watchapp Pebble [uuid] (deve essere aperta sull'orologio).
+  static Future<void> pebbleInvia(String uuid, List<Map<String, dynamic>> tuple) async {
+    if (!_android) return;
+    try {
+      await _ch.invokeMethod('pebbleInvia', {'uuid': uuid, 'json': jsonEncode(tuple)});
+    } catch (_) {}
+  }
 }
