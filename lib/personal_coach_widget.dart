@@ -12,6 +12,23 @@ class PersonalCoachWidget {
   static bool get _android =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
+  static Future<void> Function(List<dynamic> tuple)? _suPebble;
+  static Future<void> Function(String percorso, String json)? _suOrologio;
+
+  // un solo gestore per i messaggi che arrivano dal lato Android
+  static void _gestore() {
+    _ch.setMethodCallHandler((call) async {
+      try {
+        if (call.method == 'pebbleMessaggio' && _suPebble != null) {
+          await _suPebble!(jsonDecode(call.arguments as String) as List<dynamic>);
+        } else if (call.method == 'orologioMessaggio' && _suOrologio != null) {
+          final a = (call.arguments as Map).cast<String, dynamic>();
+          await _suOrologio!(a['percorso'] as String, a['json'] as String);
+        }
+      } catch (_) {}
+    });
+  }
+
   /// Salva i dati mostrati dal widget e lo ridisegna.
   static Future<void> aggiorna(Map<String, dynamic> dati) async {
     if (!_android) return;
@@ -62,13 +79,8 @@ class PersonalCoachWidget {
   /// [suMessaggio] riceve le tuple: [{key, type, length, value}, ...].
   static Future<void> pebbleAscolta(String uuid, Future<void> Function(List<dynamic> tuple) suMessaggio) async {
     if (!_android) return;
-    _ch.setMethodCallHandler((call) async {
-      if (call.method == 'pebbleMessaggio') {
-        try {
-          await suMessaggio(jsonDecode(call.arguments as String) as List<dynamic>);
-        } catch (_) {}
-      }
-    });
+    _suPebble = suMessaggio;
+    _gestore();
     try {
       await _ch.invokeMethod('pebbleAscolta', {'uuid': uuid});
     } catch (_) {}
@@ -89,6 +101,33 @@ class PersonalCoachWidget {
 
   /// Comandi arrivati dall'orologio per il timer in diretta.
   static final pebbleComandi = StreamController<int>.broadcast();
+
+  /// Ascolta l'app Coach per Wear OS: [suMessaggio] riceve il percorso
+  /// ('/coach/comando' o '/coach/conferma') e il JSON.
+  static Future<void> orologioAscolta(Future<void> Function(String percorso, String json) suMessaggio) async {
+    if (!_android) return;
+    _suOrologio = suMessaggio;
+    _gestore();
+    try {
+      await _ch.invokeMethod('orologioAscolta');
+    } catch (_) {}
+  }
+
+  /// Pubblica [dati] per l'orologio Wear OS sul percorso del Data Layer.
+  static Future<void> orologioPubblica(String percorso, Map<String, dynamic> dati) async {
+    if (!_android) return;
+    try {
+      await _ch.invokeMethod('orologioPubblica', {'percorso': percorso, 'json': jsonEncode(dati)});
+    } catch (_) {}
+  }
+
+  /// Apre l'app Coach sugli orologi Wear OS collegati.
+  static Future<void> orologioApri() async {
+    if (!_android) return;
+    try {
+      await _ch.invokeMethod('orologioApri');
+    } catch (_) {}
+  }
 
   /// Invia tuple alla watchapp Pebble [uuid] (deve essere aperta sull'orologio).
   static Future<void> pebbleInvia(String uuid, List<Map<String, dynamic>> tuple) async {

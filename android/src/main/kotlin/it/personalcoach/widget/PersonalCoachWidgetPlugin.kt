@@ -19,6 +19,14 @@ import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import androidx.wear.remote.interactions.RemoteActivityHelper
+import com.google.android.gms.wearable.DataClient
+import com.google.android.gms.wearable.DataEvent
+import com.google.android.gms.wearable.DataItem
+import com.google.android.gms.wearable.DataMapItem
+import com.google.android.gms.wearable.MessageClient
+import com.google.android.gms.wearable.PutDataMapRequest
+import com.google.android.gms.wearable.Wearable
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.activity.ActivityAware
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
@@ -26,6 +34,7 @@ import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.PluginRegistry
 import java.util.UUID
+import java.util.concurrent.Executors
 
 class PersonalCoachWidgetPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware,
     PluginRegistry.RequestPermissionsResultListener {
@@ -39,6 +48,19 @@ class PersonalCoachWidgetPlugin : FlutterPlugin, MethodChannel.MethodCallHandler
     private var pebbleUuid: UUID? = null
     private var pebbleRicevitore: BroadcastReceiver? = null
     private var pebbleTransazione = 0
+    // Wear OS (app Coach sull'orologio, stesso applicationId): Data Layer
+    private var orologioAttivo = false
+    private val orologioDati = DataClient.OnDataChangedListener { eventi ->
+        for (e in eventi) {
+            if (e.type == DataEvent.TYPE_CHANGED) orologioLeggi(e.dataItem)
+        }
+        eventi.release()
+    }
+    private val orologioMessaggi = MessageClient.OnMessageReceivedListener { m ->
+        if (m.path == "/coach/comando" && m.data.isNotEmpty()) {
+            orologioADart(m.path, "{\"comando\":${m.data[0].toInt()}}")
+        }
+    }
 
     override fun onAttachedToEngine(b: FlutterPlugin.FlutterPluginBinding) {
         context = b.applicationContext
@@ -50,6 +72,59 @@ class PersonalCoachWidgetPlugin : FlutterPlugin, MethodChannel.MethodCallHandler
         channel.setMethodCallHandler(null)
         pebbleRicevitore?.let { try { context.unregisterReceiver(it) } catch (_: Exception) {} }
         pebbleRicevitore = null
+        if (orologioAttivo) {
+            Wearable.getDataClient(context).removeListener(orologioDati)
+            Wearable.getMessageClient(context).removeListener(orologioMessaggi)
+            orologioAttivo = false
+        }
+    }
+
+    // Conferme dall'orologio (DataItem /coach/conferma): passano a Dart e poi
+    // si cancellano, così ognuna conta una volta sola; quelle arrivate ad app
+    // chiusa si leggono all'avvio.
+    private fun orologioAscolta() {
+        if (orologioAttivo) return
+        orologioAttivo = true
+        val dati = Wearable.getDataClient(context)
+        dati.addListener(orologioDati)
+        Wearable.getMessageClient(context).addListener(orologioMessaggi)
+        dati.dataItems.addOnSuccessListener { items ->
+            for (i in items) orologioLeggi(i)
+            items.release()
+        }
+    }
+
+    private fun orologioLeggi(item: DataItem) {
+        if (item.uri.path != "/coach/conferma") return
+        val json = try { DataMapItem.fromDataItem(item).dataMap.getString("json") } catch (_: Exception) { null } ?: return
+        orologioADart("/coach/conferma", json)
+        Wearable.getDataClient(context).deleteDataItems(item.uri)
+    }
+
+    private fun orologioADart(percorso: String, json: String) {
+        Handler(Looper.getMainLooper()).post {
+            channel.invokeMethod("orologioMessaggio", mapOf("percorso" to percorso, "json" to json))
+        }
+    }
+
+    private fun orologioPubblica(percorso: String, json: String) {
+        val r = PutDataMapRequest.create(percorso)
+        r.dataMap.putString("json", json)
+        Wearable.getDataClient(context).putDataItem(r.asPutDataRequest().setUrgent())
+    }
+
+    // Apre l'app Coach sugli orologi collegati.
+    private fun orologioApri() {
+        Wearable.getNodeClient(context).connectedNodes.addOnSuccessListener { nodi ->
+            if (nodi.isEmpty()) return@addOnSuccessListener
+            val helper = RemoteActivityHelper(context, Executors.newSingleThreadExecutor())
+            val i = Intent(Intent.ACTION_VIEW)
+                .addCategory(Intent.CATEGORY_BROWSABLE)
+                .setData(android.net.Uri.parse("personalcoach-wear://diretta"))
+            for (n in nodi) {
+                try { helper.startRemoteActivity(i, n.id) } catch (_: Exception) {}
+            }
+        }
     }
 
     // Messaggi dalla watchapp: ACK subito all'app Pebble, poi a Dart.
@@ -133,6 +208,18 @@ class PersonalCoachWidgetPlugin : FlutterPlugin, MethodChannel.MethodCallHandler
             }
             "pebbleApri" -> {
                 pebbleApri(UUID.fromString(call.argument<String>("uuid")))
+                result.success(true)
+            }
+            "orologioAscolta" -> {
+                orologioAscolta()
+                result.success(true)
+            }
+            "orologioPubblica" -> {
+                orologioPubblica(call.argument<String>("percorso") ?: "/coach/seduta", call.argument<String>("json") ?: "{}")
+                result.success(true)
+            }
+            "orologioApri" -> {
+                orologioApri()
                 result.success(true)
             }
             "pebbleInvia" -> {
