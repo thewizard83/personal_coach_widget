@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -72,6 +73,22 @@ class PersonalCoachWidget {
       await _ch.invokeMethod('pebbleAscolta', {'uuid': uuid});
     } catch (_) {}
   }
+
+  /// Apre la watchapp Pebble [uuid] sull'orologio (se è già aperta non cambia nulla).
+  static Future<void> pebbleApri(String uuid) async {
+    if (!_android) return;
+    try {
+      await _ch.invokeMethod('pebbleApri', {'uuid': uuid});
+    } catch (_) {}
+  }
+
+  /// Seduta in diretta per la watchapp: chi gestisce il timer la aggiorna a
+  /// ogni cambio (null quando il timer si chiude), chi parla con l'orologio
+  /// la ascolta.
+  static final pebbleDiretta = ValueNotifier<Map<String, dynamic>?>(null);
+
+  /// Comandi arrivati dall'orologio per il timer in diretta.
+  static final pebbleComandi = StreamController<int>.broadcast();
 
   /// Invia tuple alla watchapp Pebble [uuid] (deve essere aperta sull'orologio).
   static Future<void> pebbleInvia(String uuid, List<Map<String, dynamic>> tuple) async {

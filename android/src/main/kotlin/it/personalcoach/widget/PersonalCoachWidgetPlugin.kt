@@ -72,6 +72,11 @@ class PersonalCoachWidgetPlugin : FlutterPlugin, MethodChannel.MethodCallHandler
         pebbleRicevitore = r
     }
 
+    // Apre la watchapp sull'orologio (idempotente se è già aperta).
+    private fun pebbleApri(uuid: UUID) {
+        context.sendBroadcast(Intent(PEBBLE_APRI).putExtra(PEBBLE_UUID, uuid))
+    }
+
     private fun pebbleInvia(uuid: UUID, json: String) {
         pebbleTransazione = (pebbleTransazione + 1) % 256
         context.sendBroadcast(
@@ -124,6 +129,10 @@ class PersonalCoachWidgetPlugin : FlutterPlugin, MethodChannel.MethodCallHandler
             }
             "pebbleAscolta" -> {
                 pebbleAscolta(UUID.fromString(call.argument<String>("uuid")))
+                result.success(true)
+            }
+            "pebbleApri" -> {
+                pebbleApri(UUID.fromString(call.argument<String>("uuid")))
                 result.success(true)
             }
             "pebbleInvia" -> {
@@ -205,6 +214,7 @@ class PersonalCoachWidgetPlugin : FlutterPlugin, MethodChannel.MethodCallHandler
         private const val PEBBLE_RICEVI = "com.getpebble.action.app.RECEIVE"
         private const val PEBBLE_INVIA = "com.getpebble.action.app.SEND"
         private const val PEBBLE_ACK = "com.getpebble.action.app.ACK"
+        private const val PEBBLE_APRI = "com.getpebble.action.app.START"
         private const val PEBBLE_UUID = "uuid"
         private const val PEBBLE_TRANSAZIONE = "transaction_id"
         private const val PEBBLE_DATI = "msg_data"
