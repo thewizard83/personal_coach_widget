@@ -80,4 +80,15 @@ class PersonalCoachWidget {
       await _ch.invokeMethod('pebbleInvia', {'uuid': uuid, 'json': jsonEncode(tuple)});
     } catch (_) {}
   }
+
+  /// Apre l'autorizzazione Strava e restituisce l'indirizzo di ritorno
+  /// (personalcoach://localhost?code=...), o null se annullata.
+  static Future<String?> stravaAutorizza(String url) async {
+    if (!_android) return null;
+    try {
+      return await _ch.invokeMethod<String>('stravaAutorizza', {'url': url});
+    } catch (_) {
+      return null;
+    }
+  }
 }

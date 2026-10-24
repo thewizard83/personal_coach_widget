@@ -109,6 +109,19 @@ class PersonalCoachWidgetPlugin : FlutterPlugin, MethodChannel.MethodCallHandler
                     result.success(false)
                 }
             }
+            "stravaAutorizza" -> {
+                // apre la pagina (o l'app) Strava; il risultato arriva da StravaCallbackActivity
+                stravaInAttesa?.success(null)
+                stravaInAttesa = result
+                val i = Intent(Intent.ACTION_VIEW, android.net.Uri.parse(call.argument<String>("url")))
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                try {
+                    context.startActivity(i)
+                } catch (e: Exception) {
+                    stravaInAttesa = null
+                    result.success(null)
+                }
+            }
             "pebbleAscolta" -> {
                 pebbleAscolta(UUID.fromString(call.argument<String>("uuid")))
                 result.success(true)
@@ -179,6 +192,14 @@ class PersonalCoachWidgetPlugin : FlutterPlugin, MethodChannel.MethodCallHandler
     }
 
     companion object {
+        private var stravaInAttesa: MethodChannel.Result? = null
+
+        fun consegnaStrava(uri: String?) {
+            val r = stravaInAttesa ?: return
+            stravaInAttesa = null
+            Handler(Looper.getMainLooper()).post { r.success(uri) }
+        }
+
         private const val CANALE = "coach"
         private const val CODICE_PERMESSO = 4711
         private const val PEBBLE_RICEVI = "com.getpebble.action.app.RECEIVE"

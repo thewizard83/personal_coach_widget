@@ -4,3 +4,5 @@ build/
 pubspec.lock
 android/.gradle/
 android/local.properties
+
+.omc/

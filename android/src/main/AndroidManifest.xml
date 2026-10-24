@@ -1,6 +1,20 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <application>
+        <!-- Ritorno dall'autorizzazione Strava: personalcoach://localhost?code=... -->
+        <activity
+            android:name="it.personalcoach.widget.StravaCallbackActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="personalcoach" android:host="localhost" />
+            </intent-filter>
+        </activity>
         <receiver
             android:name="it.personalcoach.widget.CoachWidgetProvider"
             android:exported="false"
