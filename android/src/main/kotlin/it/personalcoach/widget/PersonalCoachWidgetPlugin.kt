@@ -70,6 +70,7 @@ class PersonalCoachWidgetPlugin : FlutterPlugin, MethodChannel.MethodCallHandler
 
     override fun onDetachedFromEngine(b: FlutterPlugin.FlutterPluginBinding) {
         channel.setMethodCallHandler(null)
+        if (istanza === this) istanza = null
         pebbleRicevitore?.let { try { context.unregisterReceiver(it) } catch (_: Exception) {} }
         pebbleRicevitore = null
         if (orologioAttivo) {
@@ -184,6 +185,16 @@ class PersonalCoachWidgetPlugin : FlutterPlugin, MethodChannel.MethodCallHandler
                 val lista = try { org.json.JSONArray(call.argument<String>("json") ?: "[]") } catch (_: Exception) { org.json.JSONArray() }
                 result.success(PromemoriaReceiver.sostituisci(context, lista))
             }
+            "chiediLuogo" -> {
+                LuogoReceiver.chiedi(
+                    context,
+                    call.argument<Int>("id") ?: 4000,
+                    call.argument<String>("giorno") ?: "",
+                    call.argument<String>("titolo") ?: "Dove sei?",
+                    call.argument<String>("testo") ?: ""
+                )
+                result.success(true)
+            }
             "allarmiEsatti" -> result.success(PromemoriaReceiver.esatti(context))
             "consentiAllarmiEsatti" -> {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -267,16 +278,29 @@ class PersonalCoachWidgetPlugin : FlutterPlugin, MethodChannel.MethodCallHandler
 
     override fun onAttachedToActivity(b: ActivityPluginBinding) {
         activity = b.activity; binding = b; b.addRequestPermissionsResultListener(this)
+        istanza = this
     }
 
     override fun onDetachedFromActivityForConfigChanges() = onDetachedFromActivity()
     override fun onReattachedToActivityForConfigChanges(b: ActivityPluginBinding) = onAttachedToActivity(b)
     override fun onDetachedFromActivity() {
         binding?.removeRequestPermissionsResultListener(this); binding = null; activity = null
+        if (istanza === this) istanza = null
     }
 
     companion object {
         private var stravaInAttesa: MethodChannel.Result? = null
+        // plugin dell'engine con l'activity aperta (per inoltrare le risposte)
+        private var istanza: PersonalCoachWidgetPlugin? = null
+
+        fun luogoRisposto(giorno: String, luogo: String) {
+            val p = istanza ?: return
+            Handler(Looper.getMainLooper()).post {
+                try {
+                    p.channel.invokeMethod("luogoRisposto", mapOf("giorno" to giorno, "luogo" to luogo))
+                } catch (_: Exception) {}
+            }
+        }
 
         fun consegnaStrava(uri: String?) {
             val r = stravaInAttesa ?: return

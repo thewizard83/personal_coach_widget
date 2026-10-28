@@ -14,6 +14,7 @@ class PersonalCoachWidget {
 
   static Future<void> Function(List<dynamic> tuple)? _suPebble;
   static Future<void> Function(String percorso, String json)? _suOrologio;
+  static Future<void> Function(String giorno, String luogo)? _suLuogo;
 
   // un solo gestore per i messaggi che arrivano dal lato Android
   static void _gestore() {
@@ -21,6 +22,9 @@ class PersonalCoachWidget {
       try {
         if (call.method == 'pebbleMessaggio' && _suPebble != null) {
           await _suPebble!(jsonDecode(call.arguments as String) as List<dynamic>);
+        } else if (call.method == 'luogoRisposto' && _suLuogo != null) {
+          final a = (call.arguments as Map).cast<String, dynamic>();
+          await _suLuogo!(a['giorno'] as String, a['luogo'] as String);
         } else if (call.method == 'orologioMessaggio' && _suOrologio != null) {
           final a = (call.arguments as Map).cast<String, dynamic>();
           await _suOrologio!(a['percorso'] as String, a['json'] as String);
@@ -59,6 +63,23 @@ class PersonalCoachWidget {
     } catch (_) {
       return false;
     }
+  }
+
+  /// Notifica "Dove sei [giorno]?" con i pulsanti Lecco / Casa / Milano. La
+  /// risposta finisce in SharedPreferences ('coach_luogo_<giorno>': lecco,
+  /// casa o milano) e, ad app aperta, arriva a [ascoltaLuogo].
+  static Future<void> chiediLuogo(int id, String giorno, String titolo, String testo) async {
+    if (!_android) return;
+    try {
+      await _ch.invokeMethod('chiediLuogo', {'id': id, 'giorno': giorno, 'titolo': titolo, 'testo': testo});
+    } catch (_) {}
+  }
+
+  /// Riceve le risposte alla domanda di [chiediLuogo] mentre l'app è aperta.
+  static void ascoltaLuogo(Future<void> Function(String giorno, String luogo) suRisposta) {
+    if (!_android) return;
+    _suLuogo = suRisposta;
+    _gestore();
   }
 
   /// True se l'app può programmare allarmi esatti (sempre sotto Android 12).

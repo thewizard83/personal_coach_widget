@@ -28,6 +28,10 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/coach_widget_info" />
         </receiver>
+        <!-- Risposte alla domanda "Dove sei quel giorno?" -->
+        <receiver
+            android:name="it.personalcoach.widget.LuogoReceiver"
+            android:exported="false" />
         <!-- Promemoria della borsa (AlarmManager) e riprogrammazione dopo riavvio -->
         <receiver
             android:name="it.personalcoach.widget.PromemoriaReceiver"
