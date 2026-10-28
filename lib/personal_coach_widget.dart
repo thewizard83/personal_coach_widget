@@ -45,6 +45,40 @@ class PersonalCoachWidget {
     } catch (_) {}
   }
 
+  /// Sostituisce i promemoria a orario fisso con [lista]
+  /// ({id, quando: DateTime, titolo, testo}), programmati con AlarmManager.
+  /// Restituisce true se sono esatti (SCHEDULE_EXACT_ALARM concesso).
+  static Future<bool> programmaPromemoria(List<Map<String, dynamic>> lista) async {
+    if (!_android) return false;
+    final json = [
+      for (final p in lista)
+        {...p, 'quando': (p['quando'] as DateTime).millisecondsSinceEpoch},
+    ];
+    try {
+      return await _ch.invokeMethod<bool>('programmaPromemoria', {'json': jsonEncode(json)}) ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// True se l'app può programmare allarmi esatti (sempre sotto Android 12).
+  static Future<bool> allarmiEsatti() async {
+    if (!_android) return false;
+    try {
+      return await _ch.invokeMethod<bool>('allarmiEsatti') ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Apre l'impostazione di sistema "Sveglie e promemoria" (Android 12+).
+  static Future<void> consentiAllarmiEsatti() async {
+    if (!_android) return;
+    try {
+      await _ch.invokeMethod('consentiAllarmiEsatti');
+    } catch (_) {}
+  }
+
   /// Chiede il permesso per le notifiche (Android 13+). Restituisce true se concesso.
   static Future<bool> richiediPermessoNotifiche() async {
     if (!_android) return false;

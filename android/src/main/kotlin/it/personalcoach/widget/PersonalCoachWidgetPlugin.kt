@@ -173,11 +173,26 @@ class PersonalCoachWidgetPlugin : FlutterPlugin, MethodChannel.MethodCallHandler
             }
             "notifica" -> {
                 mostraNotifica(
+                    context,
                     call.argument<Int>("id") ?: 1,
                     call.argument<String>("titolo") ?: "PersonalCoach",
                     call.argument<String>("testo") ?: ""
                 )
                 result.success(true)
+            }
+            "programmaPromemoria" -> {
+                val lista = try { org.json.JSONArray(call.argument<String>("json") ?: "[]") } catch (_: Exception) { org.json.JSONArray() }
+                result.success(PromemoriaReceiver.sostituisci(context, lista))
+            }
+            "allarmiEsatti" -> result.success(PromemoriaReceiver.esatti(context))
+            "consentiAllarmiEsatti" -> {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    val i = Intent(android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
+                        .setData(android.net.Uri.parse("package:${context.packageName}"))
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    try { context.startActivity(i) } catch (_: Exception) {}
+                }
+                result.success(PromemoriaReceiver.esatti(context))
             }
             "notificheAbilitate" -> result.success(NotificationManagerCompat.from(context).areNotificationsEnabled())
             "richiediPermessoNotifiche" -> richiediPermesso(result)
@@ -250,33 +265,6 @@ class PersonalCoachWidgetPlugin : FlutterPlugin, MethodChannel.MethodCallHandler
         return true
     }
 
-    private fun mostraNotifica(id: Int, titolo: String, testo: String) {
-        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            nm.createNotificationChannel(
-                NotificationChannel(CANALE, context.getString(R.string.coach_canale), NotificationManager.IMPORTANCE_DEFAULT)
-            )
-        }
-        val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)
-        val pi = intent?.let {
-            PendingIntent.getActivity(context, id, it, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        }
-        val n = NotificationCompat.Builder(context, CANALE)
-            .setSmallIcon(R.drawable.coach_notifica)
-            .setColor(0xFF1F6FEB.toInt())
-            .setContentTitle(titolo)
-            .setContentText(testo)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(testo))
-            .setAutoCancel(true)
-            .apply { if (pi != null) setContentIntent(pi) }
-            .build()
-        try {
-            NotificationManagerCompat.from(context).notify(id, n)
-        } catch (_: SecurityException) {
-            // permesso notifiche non concesso
-        }
-    }
-
     override fun onAttachedToActivity(b: ActivityPluginBinding) {
         activity = b.activity; binding = b; b.addRequestPermissionsResultListener(this)
     }
@@ -296,7 +284,40 @@ class PersonalCoachWidgetPlugin : FlutterPlugin, MethodChannel.MethodCallHandler
             Handler(Looper.getMainLooper()).post { r.success(uri) }
         }
 
-        private const val CANALE = "coach"
+        const val CANALE = "coach"
+        const val CANALE_PROMEMORIA = "promemoria"
+
+        fun mostraNotifica(context: Context, id: Int, titolo: String, testo: String, canale: String = CANALE) {
+            val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                nm.createNotificationChannel(
+                    if (canale == CANALE_PROMEMORIA) {
+                        NotificationChannel(canale, context.getString(R.string.coach_canale_promemoria), NotificationManager.IMPORTANCE_HIGH)
+                    } else {
+                        NotificationChannel(canale, context.getString(R.string.coach_canale), NotificationManager.IMPORTANCE_DEFAULT)
+                    }
+                )
+            }
+            val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)
+            val pi = intent?.let {
+                PendingIntent.getActivity(context, id, it, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+            }
+            val n = NotificationCompat.Builder(context, canale)
+                .setSmallIcon(R.drawable.coach_notifica)
+                .setColor(0xFF1F6FEB.toInt())
+                .setContentTitle(titolo)
+                .setContentText(testo)
+                .setStyle(NotificationCompat.BigTextStyle().bigText(testo))
+                .setAutoCancel(true)
+                .apply { if (pi != null) setContentIntent(pi) }
+                .build()
+            try {
+                NotificationManagerCompat.from(context).notify(id, n)
+            } catch (_: SecurityException) {
+                // permesso notifiche non concesso
+            }
+        }
+
         private const val CODICE_PERMESSO = 4711
         private const val PEBBLE_RICEVI = "com.getpebble.action.app.RECEIVE"
         private const val PEBBLE_INVIA = "com.getpebble.action.app.SEND"

@@ -2,4 +2,5 @@
     <string name="coach_widget_nome">PersonalCoach</string>
     <string name="coach_widget_descrizione">Avanzamento del piano e prossima seduta</string>
     <string name="coach_canale">Coach</string>
+    <string name="coach_canale_promemoria">Promemoria borsa</string>
 </resources>
