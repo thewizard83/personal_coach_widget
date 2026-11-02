@@ -185,6 +185,23 @@ class PersonalCoachWidgetPlugin : FlutterPlugin, MethodChannel.MethodCallHandler
                 val lista = try { org.json.JSONArray(call.argument<String>("json") ?: "[]") } catch (_: Exception) { org.json.JSONArray() }
                 result.success(PromemoriaReceiver.sostituisci(context, lista))
             }
+            "cuffieBluetooth" -> result.success(Voce.cuffieBluetooth(context))
+            "parla" -> result.success(
+                Voce.parla(
+                    context,
+                    call.argument<String>("testo") ?: "",
+                    call.argument<Boolean>("coda") ?: false,
+                    call.argument<Boolean>("soloCuffie") ?: true
+                )
+            )
+            "zitto" -> {
+                Voce.zitto(context)
+                result.success(true)
+            }
+            "sveglio" -> {
+                Voce.sveglio(context, call.argument<Boolean>("attivo") ?: false)
+                result.success(true)
+            }
             "chiediLuogo" -> {
                 LuogoReceiver.chiedi(
                     context,

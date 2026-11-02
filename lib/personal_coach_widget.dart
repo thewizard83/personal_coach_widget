@@ -65,6 +65,44 @@ class PersonalCoachWidget {
     }
   }
 
+  /// True se sono collegati auricolari (o cuffie) Bluetooth.
+  static Future<bool> cuffieBluetooth() async {
+    if (!_android) return false;
+    try {
+      return await _ch.invokeMethod<bool>('cuffieBluetooth') ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Pronuncia [testo] in italiano abbassando la musica. Con [soloCuffie]
+  /// parla solo se ci sono auricolari Bluetooth; con [coda] non interrompe
+  /// la frase in corso. Restituisce true se ha parlato.
+  static Future<bool> parla(String testo, {bool coda = false, bool soloCuffie = true}) async {
+    if (!_android) return false;
+    try {
+      return await _ch.invokeMethod<bool>('parla', {'testo': testo, 'coda': coda, 'soloCuffie': soloCuffie}) ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Interrompe la guida vocale.
+  static Future<void> zitto() async {
+    if (!_android) return;
+    try {
+      await _ch.invokeMethod('zitto');
+    } catch (_) {}
+  }
+
+  /// Tiene sveglia la CPU (wake lock parziale) mentre il timer corre.
+  static Future<void> sveglio(bool attivo) async {
+    if (!_android) return;
+    try {
+      await _ch.invokeMethod('sveglio', {'attivo': attivo});
+    } catch (_) {}
+  }
+
   /// Notifica "Dove sei [giorno]?" con i pulsanti Lecco / Casa / Milano. La
   /// risposta finisce in SharedPreferences ('coach_luogo_<giorno>': lecco,
   /// casa o milano) e, ad app aperta, arriva a [ascoltaLuogo].
