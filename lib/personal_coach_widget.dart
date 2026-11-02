@@ -100,13 +100,26 @@ class PersonalCoachWidget {
     } catch (_) {}
   }
 
-  /// {attivo, fix, errore, metri, velocita (m/s), precisione (m), secondiInMovimento}
+  /// {attivo, fix, errore, metri, velocita (m/s), precisione (m), secondiInMovimento, punti}
   static Future<Map<String, dynamic>> gpsStato() async {
     if (!_android) return {};
     try {
       return (await _ch.invokeMethod<Map>('gpsStato'))?.cast<String, dynamic>() ?? {};
     } catch (_) {
       return {};
+    }
+  }
+
+  /// Tracciato della corsa in corso (o appena finita): [[lat, lon], …].
+  static Future<List<List<double>>> gpsTraccia() async {
+    if (!_android) return const [];
+    try {
+      final v = (await _ch.invokeMethod<List>('gpsTraccia')) ?? const [];
+      return [
+        for (var i = 0; i + 1 < v.length; i += 2) [(v[i] as num).toDouble(), (v[i + 1] as num).toDouble()],
+      ];
+    } catch (_) {
+      return const [];
     }
   }
 

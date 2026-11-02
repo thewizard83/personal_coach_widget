@@ -208,6 +208,7 @@ class PersonalCoachWidgetPlugin : FlutterPlugin, MethodChannel.MethodCallHandler
                 result.success(true)
             }
             "gpsStato" -> result.success(Gps.stato())
+            "gpsTraccia" -> result.success(Gps.traccia())
             "cuffieBluetooth" -> result.success(Voce.cuffieBluetooth(context))
             "parla" -> result.success(
                 Voce.parla(

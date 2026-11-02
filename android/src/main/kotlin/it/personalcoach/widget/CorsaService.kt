@@ -123,11 +123,14 @@ object Gps {
     @Volatile private var ultimoMovimento = 0L
     private var ultima: Location? = null
     private val recenti = ArrayDeque<Pair<Long, Double>>() // (ms, metri progressivi)
+    // tracciato per la mappa: un punto ogni ~5 m (max 20000 ≈ 100 km)
+    private val punti = ArrayList<DoubleArray>()
 
     fun azzera() {
         fix = false; errore = false; inPausa = false
         metri = 0.0; velocita = 0.0; precisione = 0f; secondiInMovimento = 0.0
         ultima = null; recenti.clear(); ultimoMovimento = 0L
+        synchronized(punti) { punti.clear() }
     }
 
     @Synchronized
@@ -137,6 +140,7 @@ object Gps {
         fix = true
         val prec = ultima
         ultima = l
+        if (prec == null && !inPausa) segna(l)
         if (prec == null || inPausa) return
         val d = prec.distanceTo(l).toDouble()
         val dt = (l.time - prec.time) / 1000.0
@@ -144,6 +148,7 @@ object Gps {
         // scarta salti impossibili (> 8 m/s ≈ 2:05/km) e il rumore da fermo
         if (d / dt > 8.0 || d < 1.5) return
         metri += d
+        segna(l)
         secondiInMovimento += dt
         ultimoMovimento = System.currentTimeMillis()
         recenti.addLast(l.time to metri)
@@ -152,6 +157,21 @@ object Gps {
         val sec = (l.time - t0) / 1000.0
         velocita = if (sec >= 3) (metri - m0) / sec else d / dt
     }
+
+    private fun segna(l: Location) {
+        synchronized(punti) {
+            val u = punti.lastOrNull()
+            if (u != null) {
+                val r = FloatArray(1)
+                Location.distanceBetween(u[0], u[1], l.latitude, l.longitude, r)
+                if (r[0] < 5f) return
+            }
+            if (punti.size < 20_000) punti.add(doubleArrayOf(l.latitude, l.longitude))
+        }
+    }
+
+    /** Tracciato piatto: [lat0, lon0, lat1, lon1, …]. */
+    fun traccia(): List<Double> = synchronized(punti) { punti.flatMap { listOf(it[0], it[1]) } }
 
     fun stato(): Map<String, Any> = mapOf(
         "attivo" to attivo,
@@ -162,5 +182,6 @@ object Gps {
         "velocita" to if (System.currentTimeMillis() - ultimoMovimento < 6_000) velocita else 0.0,
         "precisione" to precisione.toDouble(),
         "secondiInMovimento" to secondiInMovimento,
+        "punti" to synchronized(punti) { punti.size },
     )
 }
