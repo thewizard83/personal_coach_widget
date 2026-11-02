@@ -65,6 +65,51 @@ class PersonalCoachWidget {
     }
   }
 
+  /// Chiede il permesso di posizione precisa. True se concesso.
+  static Future<bool> gpsPermesso() async {
+    if (!_android) return false;
+    try {
+      return await _ch.invokeMethod<bool>('gpsPermesso') ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Avvia la traccia GPS (servizio in primo piano). False se manca il permesso.
+  static Future<bool> gpsAvvia() async {
+    if (!_android) return false;
+    try {
+      return await _ch.invokeMethod<bool>('gpsAvvia') ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// In pausa la distanza non aumenta.
+  static Future<void> gpsPausa(bool pausa) async {
+    if (!_android) return;
+    try {
+      await _ch.invokeMethod('gpsPausa', {'pausa': pausa});
+    } catch (_) {}
+  }
+
+  static Future<void> gpsFerma() async {
+    if (!_android) return;
+    try {
+      await _ch.invokeMethod('gpsFerma');
+    } catch (_) {}
+  }
+
+  /// {attivo, fix, errore, metri, velocita (m/s), precisione (m), secondiInMovimento}
+  static Future<Map<String, dynamic>> gpsStato() async {
+    if (!_android) return {};
+    try {
+      return (await _ch.invokeMethod<Map>('gpsStato'))?.cast<String, dynamic>() ?? {};
+    } catch (_) {
+      return {};
+    }
+  }
+
   /// True se sono collegati auricolari (o cuffie) Bluetooth.
   static Future<bool> cuffieBluetooth() async {
     if (!_android) return false;

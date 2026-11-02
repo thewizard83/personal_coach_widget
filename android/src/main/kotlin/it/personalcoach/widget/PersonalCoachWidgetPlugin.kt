@@ -44,6 +44,7 @@ class PersonalCoachWidgetPlugin : FlutterPlugin, MethodChannel.MethodCallHandler
     private var activity: Activity? = null
     private var binding: ActivityPluginBinding? = null
     private var permessoPendente: MethodChannel.Result? = null
+    private var permessoGps: MethodChannel.Result? = null
     // Pebble (PebbleKit Android "classic", supportato dall'app Pebble di Core)
     private var pebbleUuid: UUID? = null
     private var pebbleRicevitore: BroadcastReceiver? = null
@@ -185,6 +186,28 @@ class PersonalCoachWidgetPlugin : FlutterPlugin, MethodChannel.MethodCallHandler
                 val lista = try { org.json.JSONArray(call.argument<String>("json") ?: "[]") } catch (_: Exception) { org.json.JSONArray() }
                 result.success(PromemoriaReceiver.sostituisci(context, lista))
             }
+            "gpsPermesso" -> richiediGps(result)
+            "gpsAvvia" -> {
+                if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                    result.success(false)
+                } else {
+                    try {
+                        CorsaService.avvia(context)
+                        result.success(true)
+                    } catch (_: Exception) {
+                        result.success(false)
+                    }
+                }
+            }
+            "gpsPausa" -> {
+                Gps.inPausa = call.argument<Boolean>("pausa") ?: false
+                result.success(true)
+            }
+            "gpsFerma" -> {
+                CorsaService.ferma(context)
+                result.success(true)
+            }
+            "gpsStato" -> result.success(Gps.stato())
             "cuffieBluetooth" -> result.success(Voce.cuffieBluetooth(context))
             "parla" -> result.success(
                 Voce.parla(
@@ -286,7 +309,28 @@ class PersonalCoachWidgetPlugin : FlutterPlugin, MethodChannel.MethodCallHandler
         ActivityCompat.requestPermissions(a, arrayOf(Manifest.permission.POST_NOTIFICATIONS), CODICE_PERMESSO)
     }
 
+    private fun richiediGps(result: MethodChannel.Result) {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            result.success(true); return
+        }
+        val a = activity
+        if (a == null) { result.success(false); return }
+        permessoGps = result
+        ActivityCompat.requestPermissions(
+            a,
+            arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION),
+            CODICE_GPS
+        )
+    }
+
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray): Boolean {
+        if (requestCode == CODICE_GPS) {
+            permessoGps?.success(
+                ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+            )
+            permessoGps = null
+            return true
+        }
         if (requestCode != CODICE_PERMESSO) return false
         permessoPendente?.success(grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED)
         permessoPendente = null
@@ -360,6 +404,7 @@ class PersonalCoachWidgetPlugin : FlutterPlugin, MethodChannel.MethodCallHandler
         }
 
         private const val CODICE_PERMESSO = 4711
+        private const val CODICE_GPS = 4712
         private const val PEBBLE_RICEVI = "com.getpebble.action.app.RECEIVE"
         private const val PEBBLE_INVIA = "com.getpebble.action.app.SEND"
         private const val PEBBLE_ACK = "com.getpebble.action.app.ACK"

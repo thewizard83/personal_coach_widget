@@ -3,6 +3,10 @@
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <application>
         <!-- Ritorno dall'autorizzazione Strava: personalcoach://localhost?code=... -->
         <activity
@@ -29,6 +33,11 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/coach_widget_info" />
         </receiver>
+        <!-- GPS della corsa (servizio in primo piano, anche a schermo spento) -->
+        <service
+            android:name="it.personalcoach.widget.CorsaService"
+            android:exported="false"
+            android:foregroundServiceType="location" />
         <!-- Risposte alla domanda "Dove sei quel giorno?" -->
         <receiver
             android:name="it.personalcoach.widget.LuogoReceiver"
