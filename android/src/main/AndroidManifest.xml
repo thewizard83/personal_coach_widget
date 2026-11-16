@@ -7,6 +7,8 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <!-- Android 16: notifica della corsa come "aggiornamento in tempo reale" -->
+    <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
     <application>
         <!-- Ritorno dall'autorizzazione Strava: personalcoach://localhost?code=... -->
         <activity

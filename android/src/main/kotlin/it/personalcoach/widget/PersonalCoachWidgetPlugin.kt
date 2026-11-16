@@ -207,6 +207,10 @@ class PersonalCoachWidgetPlugin : FlutterPlugin, MethodChannel.MethodCallHandler
                 CorsaService.ferma(context)
                 result.success(true)
             }
+            "gpsNotifica" -> {
+                CorsaService.aggiornaSeduta(context, call.arguments as? Map<*, *> ?: emptyMap<String, Any>())
+                result.success(true)
+            }
             "gpsStato" -> result.success(Gps.stato())
             "gpsTraccia" -> result.success(Gps.traccia())
             "cuffieBluetooth" -> result.success(Voce.cuffieBluetooth(context))

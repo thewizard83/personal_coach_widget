@@ -110,6 +110,16 @@ class PersonalCoachWidget {
     }
   }
 
+  /// Dati della seduta per la notifica della corsa (visibile anche dalla
+  /// schermata di blocco): {titolo, pos, n, nome, label, fine (ms epoch di
+  /// fine blocco, 0 se in pausa o a cronometro), inPausa, finita}.
+  static Future<void> gpsNotifica(Map<String, Object?> dati) async {
+    if (!_android) return;
+    try {
+      await _ch.invokeMethod('gpsNotifica', dati);
+    } catch (_) {}
+  }
+
   /// Tracciato della corsa in corso (o appena finita): [[lat, lon], …].
   static Future<List<List<double>>> gpsTraccia() async {
     if (!_android) return const [];
